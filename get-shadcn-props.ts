@@ -962,7 +962,7 @@ type ${pascalName}${subComponent ? subComponent : ''}Props = ${match[0]};`,
       }
       
       // Also extract imports to detect dependencies
-      extractDependenciesFromText(code, componentData);
+      detectDependenciesFromText(code, componentData);
     }
     
     // Deduplicate and rename props for sub-components
