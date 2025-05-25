@@ -1539,13 +1539,33 @@ async function main(componentNameOrUrl: string, options: {
 if (require.main === module) {
   if (process.argv.length < 3) {
     console.error(chalk.red(`${logSymbols.error} Please provide a shadcn component URL or name`));
-    console.log(`Usage: ${chalk.cyan('npm start <component-name-or-url>')}`);
-    console.log(`Example: ${chalk.cyan('npm start accordion')}`);
-    console.log(`Example: ${chalk.cyan('npm start https://ui.shadcn.com/docs/components/accordion')}`);
+    console.log(`Usage: ${chalk.cyan('ts-node get-shadcn-props.ts <component-name> [--component-id=<id>]')}`);
+    console.log(`Example: ${chalk.cyan('ts-node get-shadcn-props.ts accordion --component-id=abc123')}`);
     process.exit(1);
   }
+  console.log(chalk.blue.bold(`${process.argv}`));
+  
+  const componentNameOrUrl = process.argv[2];
+  const options: {
+    componentId?: string;
+    depsOnly?: boolean;
+    cleanup?: boolean;
+  } = {};
+  
+  // Parse --component-id=<value> from arguments
+  const componentIdArg = process.argv.find(arg => arg.startsWith('component-id='));
+  if (componentIdArg) {
+    options.componentId = componentIdArg.split('=')[1];
+  }
+  
+  // Parse other options if needed
+  options.depsOnly = process.argv.includes('--deps-only');
+  options.cleanup = !process.argv.includes('--no-cleanup');
 
-  main(process.argv[2]).catch(error => {
+  console.log(chalk.blue(`\nStarting extraction for component: ${componentNameOrUrl}`));
+  console.log(chalk.gray(`Options: ${JSON.stringify(options, null, 2)}\n`));
+  
+  main(componentNameOrUrl, options).catch(error => {
     debug('Unhandled error:', error);
     console.error(chalk.red(`${logSymbols.error} Unhandled error: ${error instanceof Error ? error.message : String(error)}`));
     process.exit(1);
