@@ -54,7 +54,7 @@ async function saveToDatabase(componentId: string, typescriptContent: string): P
   try {
     // Open the database connection
     const db = await open({
-      filename: './components.db',
+      filename: '../components.db',
       driver: sqlite3.Database
     });
     
