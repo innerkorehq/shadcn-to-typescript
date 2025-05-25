@@ -23,6 +23,8 @@ import mem from 'mem';
 import fastSafeStringify from 'fast-safe-stringify';
 import * as pacote from 'pacote';
 import { parse as parseImports } from 'es-module-lexer';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
 
 // Set up debug logging
 const debug = Debug('shadcn:props');
@@ -44,6 +46,38 @@ interface ComponentData {
   dependencies: Set<string>;
   primitiveImports: Map<string, string>;
 }
+
+/**
+ * Save TypeScript content to SQLite database
+ */
+async function saveToDatabase(componentId: string, typescriptContent: string): Promise<void> {
+  try {
+    // Open the database connection
+    const db = await open({
+      filename: './components.db',
+      driver: sqlite3.Database
+    });
+    
+    // Update the component with the TypeScript content
+    const result = await db.run(
+      `UPDATE components 
+       SET typescript = ?, updated_at = datetime('now') 
+       WHERE id = ?`,
+      typescriptContent, 
+      componentId
+    );
+    
+    if (result.changes === 0) {
+      throw new Error(`No component found with ID: ${componentId}`);
+    }
+    
+    await db.close();
+    console.log(chalk.green(`${logSymbols.success} TypeScript content saved to database for component ID: ${componentId}`));
+  } catch (error) {
+    throw new Error(`Failed to save to database: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 
 /**
  * Normalize component name to handle hyphenated names correctly
@@ -1371,7 +1405,11 @@ async function cleanupTempFiles(): Promise<void> {
 /**
  * Main workflow function with comprehensive error handling
  */
-async function main(componentNameOrUrl: string): Promise<void> {
+async function main(componentNameOrUrl: string, options: {
+  componentId?: string;
+  depsOnly?: boolean;
+  cleanup?: boolean;
+} = {}): Promise<void> {
   console.log(boxen(chalk.blue.bold('Shadcn Component Props Extractor'), { 
     padding: 1, 
     margin: 1,
@@ -1405,14 +1443,31 @@ async function main(componentNameOrUrl: string): Promise<void> {
     // Save to file
     const fileName = await savePropTypes(propsText, componentData);
     
+    // If component ID is provided, save to database
+    if (options.componentId) {
+      const spinner = ora(`Saving TypeScript content to database...`).start();
+      try {
+        // Read file content
+        const fileContent = await fs.readFile(fileName, 'utf-8');
+        
+        // Save to database
+        await saveToDatabase(options.componentId, fileContent);
+        spinner.succeed(`TypeScript content saved to database for component ID: ${options.componentId}`);
+      } catch (dbError) {
+        spinner.fail(`Failed to save to database: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
+      }
+    }
+    
     // Clear timeout since we're done
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;
     }
     
-    // Clean up
-    await cleanupTempFiles();
+    // Clean up if enabled
+    if (options.cleanup !== false) {
+      await cleanupTempFiles();
+    }
     
     // Display success and preview
     console.log('\n' + boxen(chalk.green.bold(' SUCCESS '), { 
@@ -1420,7 +1475,7 @@ async function main(componentNameOrUrl: string): Promise<void> {
       margin: 0,
       borderStyle: 'round' 
     }) + ' Process completed successfully!\n');
-    
+
     console.log(chalk.yellow('File preview:'));
     
     // Show file preview

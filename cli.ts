@@ -20,6 +20,7 @@ program
   .option('-n, --no-cleanup', 'Do not clean up temporary files')
   .option('-v, --verbose', 'Show verbose output')
   .option('-r, --registry', 'Show component registry information')
+  .option('-c, --component-id <id>', 'Component ID to update in the database')
   .action(async (componentNameOrUrl: string, options) => {
     if (options.verbose) {
       process.env.DEBUG = 'shadcn:*';
@@ -30,16 +31,11 @@ program
       return;
     }
     
-    console.log(boxen(chalk.blue.bold('Shadcn Component Props Extractor'), { 
-      padding: 1, 
-      margin: 1,
-      borderStyle: 'round' 
-    }));
-    
     try {
       await main(componentNameOrUrl, {
         depsOnly: options.depsOnly,
-        cleanup: options.cleanup !== false
+        cleanup: options.cleanup !== false,
+        componentId: options.componentId
       });
     } catch (error) {
       console.error(chalk.red(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}`));
